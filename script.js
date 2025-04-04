@@ -8,14 +8,57 @@ const clearBtn = document.getElementById('clear-btn');
 const shareBtn = document.getElementById('share-btn');
 const youtubeContainer = document.getElementById('youtube-container');
 const youtubePlayer = document.getElementById('youtube-player');
+const themeToggle = document.getElementById('theme-toggle');
+const themeToggleIcon = document.querySelector('.theme-toggle-icon');
 
 // Store activities
 let activities = [];
 
+// Theme management
+function initTheme() {
+    // Check if user has a saved preference
+    const savedTheme = localStorage.getItem('theme');
+
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeToggleIcon.textContent = '☀️';
+    } else if (savedTheme === 'light') {
+        document.body.classList.remove('dark-mode');
+        themeToggleIcon.textContent = '🌙';
+    } else {
+        // Check system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-mode');
+            themeToggleIcon.textContent = '☀️';
+            localStorage.setItem('theme', 'dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+        }
+    }
+}
+
+themeToggle.addEventListener('click', () => {
+    if (document.body.classList.contains('dark-mode')) {
+        document.body.classList.remove('dark-mode');
+        themeToggleIcon.textContent = '🌙';
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.body.classList.add('dark-mode');
+        themeToggleIcon.textContent = '☀️';
+        localStorage.setItem('theme', 'dark');
+    }
+});
+
 // Load activities from URL if available
 window.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     loadActivitiesFromUrl();
     renderActivityList();
+
+    // Show a random activity on page load if activities are available
+    if (activities.length > 0) {
+        selectRandomActivity();
+    }
 });
 
 // Add activity
@@ -36,8 +79,8 @@ function stopYoutubeVideo() {
     youtubeContainer.style.display = 'none';
 }
 
-// Get random activity
-randomizeBtn.addEventListener('click', () => {
+// Function to select and display a random activity
+function selectRandomActivity() {
     if (activities.length === 0) {
         activityDisplay.innerHTML = '<p>Please add some activities first!</p>';
         return;
@@ -64,6 +107,11 @@ randomizeBtn.addEventListener('click', () => {
         // Display regular activity
         activityDisplay.innerHTML = `<p>${selectedActivity}</p>`;
     }
+}
+
+// Get random activity
+randomizeBtn.addEventListener('click', () => {
+    selectRandomActivity();
 });
 
 // Clear all activities

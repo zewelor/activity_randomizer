@@ -22,6 +22,7 @@ A simple web app that randomly selects an activity from your custom list. No dat
 ## URL Format
 
 All activities are stored in the URL query parameter `activities`. For example:
+
 ```
 https://yoursite.com/index.html?activities=%5B%22Read%20a%20book%22%2C%22Go%20for%20a%20walk%22%2C%22https%3A%2F%2Fyoutu.be%2FdQw4w9WgXcQ%22%5D
 ```
