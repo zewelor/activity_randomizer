@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Randomizer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Activity Randomizer</h1>
+
+        <div class="main-section">
+            <div id="activity-display" class="activity-display">
+                <p>Click the button to get a random activity!</p>
+            </div>
+
+            <div class="youtube-container" id="youtube-container" style="display: none;">
+                <iframe id="youtube-player" width="560" height="315" frameborder="0" allowfullscreen></iframe>
+            </div>
+
+            <button id="randomize-btn" class="button">Get Random Activity</button>
+        </div>
+
+        <div class="management-section">
+            <h2>Manage Activities</h2>
+            <div class="input-group">
+                <input type="text" id="activity-input" placeholder="Enter an activity or YouTube URL">
+                <button id="add-btn" class="button">Add Activity</button>
+            </div>
+
+            <h3>Your Activities</h3>
+            <ul id="activity-list" class="activity-list"></ul>
+
+            <div class="actions">
+                <button id="clear-btn" class="button secondary">Clear All</button>
+                <button id="share-btn" class="button secondary">Copy Shareable URL</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
