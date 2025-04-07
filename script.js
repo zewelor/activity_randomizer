@@ -14,6 +14,9 @@ const themeToggleIcon = document.querySelector('.theme-toggle-icon');
 // Store activities
 let activities = [];
 
+// Add a variable to store the previously selected activity
+let previousActivity = null;
+
 // Theme management
 function initTheme() {
     // Check if user has a saved preference
@@ -89,23 +92,37 @@ function selectRandomActivity() {
     // Stop any currently playing video first
     stopYoutubeVideo();
 
-    const randomIndex = Math.floor(Math.random() * activities.length);
-    const selectedActivity = activities[randomIndex];
+    let randomActivity;
+
+    // If there's only one activity, we have to use it
+    if (activities.length === 1) {
+        randomActivity = activities[0];
+    } else {
+        // Create a new array without the previous activity
+        const availableActivities = activities.filter(activity => activity !== previousActivity);
+
+        // Select a random activity from the filtered list
+        const randomIndex = Math.floor(Math.random() * availableActivities.length);
+        randomActivity = availableActivities[randomIndex];
+    }
+
+    // Update the previous activity
+    previousActivity = randomActivity;
 
     // Check if it's a YouTube URL
-    if (isYoutubeUrl(selectedActivity)) {
-        const videoId = extractYoutubeVideoId(selectedActivity);
+    if (isYoutubeUrl(randomActivity)) {
+        const videoId = extractYoutubeVideoId(randomActivity);
         if (videoId) {
             // Display YouTube video
-            activityDisplay.innerHTML = `<p>Playing: ${selectedActivity}</p>`;
+            activityDisplay.innerHTML = `<p>Playing: ${randomActivity}</p>`;
             youtubeContainer.style.display = 'block';
             youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
         } else {
-            activityDisplay.innerHTML = `<p>${selectedActivity}</p>`;
+            activityDisplay.innerHTML = `<p>${randomActivity}</p>`;
         }
     } else {
         // Display regular activity
-        activityDisplay.innerHTML = `<p>${selectedActivity}</p>`;
+        activityDisplay.innerHTML = `<p>${randomActivity}</p>`;
     }
 }
 
@@ -122,6 +139,7 @@ clearBtn.addEventListener('click', () => {
         updateURL();
         activityDisplay.innerHTML = '<p>Click the button to get a random activity!</p>';
         stopYoutubeVideo();
+        previousActivity = null;
     }
 });
 
@@ -183,9 +201,14 @@ function renderActivityList() {
 }
 
 function deleteActivity(index) {
-    activities.splice(index, 1);
+    const deletedActivity = activities.splice(index, 1)[0];
     renderActivityList();
     updateURL();
+
+    // If we deleted the previous activity, reset it
+    if (deletedActivity === previousActivity) {
+        previousActivity = null;
+    }
 }
 
 function updateURL() {
