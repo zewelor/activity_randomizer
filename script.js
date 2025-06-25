@@ -1,249 +1,194 @@
-// DOM Elements
-const activityInput = document.getElementById('activity-input');
-const addBtn = document.getElementById('add-btn');
-const activityList = document.getElementById('activity-list');
-const randomizeBtn = document.getElementById('randomize-btn');
-const activityDisplay = document.getElementById('activity-display');
-const clearBtn = document.getElementById('clear-btn');
-const shareBtn = document.getElementById('share-btn');
-const youtubeContainer = document.getElementById('youtube-container');
-const youtubePlayer = document.getElementById('youtube-player');
-const themeToggle = document.getElementById('theme-toggle');
-const themeToggleIcon = document.querySelector('.theme-toggle-icon');
+// Activity Randomizer Module
+const ActivityApp = (() => {
+    const els = {
+        activityInput: document.getElementById('activity-input'),
+        addBtn: document.getElementById('add-btn'),
+        activityList: document.getElementById('activity-list'),
+        randomizeBtn: document.getElementById('randomize-btn'),
+        activityDisplay: document.getElementById('activity-display'),
+        clearBtn: document.getElementById('clear-btn'),
+        shareBtn: document.getElementById('share-btn'),
+        youtubeContainer: document.getElementById('youtube-container'),
+        youtubePlayer: document.getElementById('youtube-player'),
+        themeToggle: document.getElementById('theme-toggle'),
+        themeToggleIcon: document.querySelector('.theme-toggle-icon'),
+    };
 
-// Store activities
-let activities = [];
+    let activities = [];
+    let previousActivity = null;
 
-// Add a variable to store the previously selected activity
-let previousActivity = null;
+    const init = () => {
+        initTheme();
+        loadActivitiesFromUrl();
+        bindEvents();
+        renderActivityList();
+        if (activities.length) selectRandomActivity();
+    };
 
-// Theme management
-function initTheme() {
-    // Check if user has a saved preference
-    const savedTheme = localStorage.getItem('theme');
+    const bindEvents = () => {
+        els.addBtn.addEventListener('click', addActivity);
+        els.activityInput.addEventListener('keyup', e => {
+            if (e.key === 'Enter') addActivity();
+        });
+        els.randomizeBtn.addEventListener('click', selectRandomActivity);
+        els.clearBtn.addEventListener('click', clearActivities);
+        els.shareBtn.addEventListener('click', copyShareUrl);
+        els.activityList.addEventListener('click', handleListClick);
+        els.themeToggle.addEventListener('click', toggleTheme);
+    };
 
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-mode');
-        themeToggleIcon.textContent = '☀️';
-    } else if (savedTheme === 'light') {
-        document.body.classList.remove('dark-mode');
-        themeToggleIcon.textContent = '🌙';
-    } else {
-        // Check system preference
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    const handleListClick = e => {
+        if (e.target.dataset.index) {
+            deleteActivity(parseInt(e.target.dataset.index, 10));
+        }
+    };
+
+    const stopYoutubeVideo = () => {
+        els.youtubePlayer.src = '';
+        els.youtubeContainer.style.display = 'none';
+    };
+
+    const selectRandomActivity = () => {
+        if (!activities.length) {
+            els.activityDisplay.innerHTML = '<p>Please add some activities first!</p>';
+            return;
+        }
+
+        stopYoutubeVideo();
+
+        let randomActivity;
+        if (activities.length === 1) {
+            randomActivity = activities[0];
+        } else {
+            const available = activities.filter(a => a !== previousActivity);
+            randomActivity = available[Math.floor(Math.random() * available.length)];
+        }
+        previousActivity = randomActivity;
+
+        if (isYoutubeUrl(randomActivity)) {
+            const videoId = extractYoutubeVideoId(randomActivity);
+            if (videoId) {
+                els.activityDisplay.innerHTML = `<p>Playing: ${randomActivity}</p>`;
+                els.youtubeContainer.style.display = 'block';
+                els.youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+                return;
+            }
+        }
+        els.activityDisplay.innerHTML = `<p>${randomActivity}</p>`;
+    };
+
+    const clearActivities = () => {
+        if (!confirm('Are you sure you want to clear all activities?')) return;
+        activities = [];
+        previousActivity = null;
+        renderActivityList();
+        updateURL();
+        els.activityDisplay.innerHTML = '<p>Click the button to get a random activity!</p>';
+        stopYoutubeVideo();
+    };
+
+    const copyShareUrl = () => {
+        const url = window.location.href;
+        navigator.clipboard.writeText(url)
+            .then(() => alert('URL copied to clipboard!'))
+            .catch(() => alert('Failed to copy URL. Please copy it manually from the address bar.'));
+    };
+
+    const addActivity = () => {
+        const activity = els.activityInput.value.trim();
+        if (!activity) {
+            alert('Please enter an activity');
+            return;
+        }
+        if (isUrl(activity) && !isYoutubeUrl(activity)) {
+            alert('Only YouTube URLs are supported. Other URLs cannot be used as activities.');
+            return;
+        }
+        activities.push(activity);
+        els.activityInput.value = '';
+        els.activityInput.focus();
+        renderActivityList();
+        updateURL();
+    };
+
+    const renderActivityList = () => {
+        els.activityList.innerHTML = '';
+        activities.forEach((activity, index) => {
+            const li = document.createElement('li');
+            li.textContent = activity;
+            const del = document.createElement('button');
+            del.textContent = '×';
+            del.dataset.index = index;
+            li.appendChild(del);
+            els.activityList.appendChild(li);
+        });
+    };
+
+    const deleteActivity = index => {
+        const deleted = activities.splice(index, 1)[0];
+        if (deleted === previousActivity) previousActivity = null;
+        renderActivityList();
+        updateURL();
+    };
+
+    const updateURL = () => {
+        const encoded = encodeURIComponent(JSON.stringify(activities));
+        const newUrl = `${window.location.origin}${window.location.pathname}?activities=${encoded}`;
+        window.history.replaceState({ activities }, document.title, newUrl);
+    };
+
+    const loadActivitiesFromUrl = () => {
+        const params = new URLSearchParams(window.location.search);
+        const activitiesParam = params.get('activities');
+        if (activitiesParam) {
+            try {
+                activities = JSON.parse(decodeURIComponent(activitiesParam));
+            } catch (e) {
+                console.error('Error parsing activities from URL:', e);
+            }
+        }
+    };
+
+    const toggleTheme = () => {
+        if (document.body.classList.contains('dark-mode')) {
+            document.body.classList.remove('dark-mode');
+            els.themeToggleIcon.textContent = '🌙';
+            localStorage.setItem('theme', 'light');
+        } else {
             document.body.classList.add('dark-mode');
-            themeToggleIcon.textContent = '☀️';
+            els.themeToggleIcon.textContent = '☀️';
+            localStorage.setItem('theme', 'dark');
+        }
+    };
+
+    const initTheme = () => {
+        const saved = localStorage.getItem('theme');
+        if (saved === 'dark') {
+            document.body.classList.add('dark-mode');
+            els.themeToggleIcon.textContent = '☀️';
+        } else if (saved === 'light') {
+            document.body.classList.remove('dark-mode');
+            els.themeToggleIcon.textContent = '🌙';
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-mode');
+            els.themeToggleIcon.textContent = '☀️';
             localStorage.setItem('theme', 'dark');
         } else {
             localStorage.setItem('theme', 'light');
         }
-    }
-}
+    };
 
-themeToggle.addEventListener('click', () => {
-    if (document.body.classList.contains('dark-mode')) {
-        document.body.classList.remove('dark-mode');
-        themeToggleIcon.textContent = '🌙';
-        localStorage.setItem('theme', 'light');
-    } else {
-        document.body.classList.add('dark-mode');
-        themeToggleIcon.textContent = '☀️';
-        localStorage.setItem('theme', 'dark');
-    }
-});
+    const isUrl = str => str.startsWith('http://') || str.startsWith('https://');
 
-// Load activities from URL if available
-window.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    loadActivitiesFromUrl();
-    renderActivityList();
+    const isYoutubeUrl = url => url.includes('youtube.com') || url.includes('youtu.be');
 
-    // Show a random activity on page load if activities are available
-    if (activities.length > 0) {
-        selectRandomActivity();
-    }
-});
+    const extractYoutubeVideoId = url => {
+        const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return match && match[2].length === 11 ? match[2] : null;
+    };
 
-// Add activity
-addBtn.addEventListener('click', () => {
-    addActivity();
-});
+    return { init };
+})();
 
-// Add activity on Enter key
-activityInput.addEventListener('keyup', (e) => {
-    if (e.key === 'Enter') {
-        addActivity();
-    }
-});
-
-// Function to stop YouTube video
-function stopYoutubeVideo() {
-    youtubePlayer.src = '';
-    youtubeContainer.style.display = 'none';
-}
-
-// Function to select and display a random activity
-function selectRandomActivity() {
-    if (activities.length === 0) {
-        activityDisplay.innerHTML = '<p>Please add some activities first!</p>';
-        return;
-    }
-
-    // Stop any currently playing video first
-    stopYoutubeVideo();
-
-    let randomActivity;
-
-    // If there's only one activity, we have to use it
-    if (activities.length === 1) {
-        randomActivity = activities[0];
-    } else {
-        // Create a new array without the previous activity
-        const availableActivities = activities.filter(activity => activity !== previousActivity);
-
-        // Select a random activity from the filtered list
-        const randomIndex = Math.floor(Math.random() * availableActivities.length);
-        randomActivity = availableActivities[randomIndex];
-    }
-
-    // Update the previous activity
-    previousActivity = randomActivity;
-
-    // Check if it's a YouTube URL
-    if (isYoutubeUrl(randomActivity)) {
-        const videoId = extractYoutubeVideoId(randomActivity);
-        if (videoId) {
-            // Display YouTube video
-            activityDisplay.innerHTML = `<p>Playing: ${randomActivity}</p>`;
-            youtubeContainer.style.display = 'block';
-            youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-        } else {
-            activityDisplay.innerHTML = `<p>${randomActivity}</p>`;
-        }
-    } else {
-        // Display regular activity
-        activityDisplay.innerHTML = `<p>${randomActivity}</p>`;
-    }
-}
-
-// Get random activity
-randomizeBtn.addEventListener('click', () => {
-    selectRandomActivity();
-});
-
-// Clear all activities
-clearBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to clear all activities?')) {
-        activities = [];
-        renderActivityList();
-        updateURL();
-        activityDisplay.innerHTML = '<p>Click the button to get a random activity!</p>';
-        stopYoutubeVideo();
-        previousActivity = null;
-    }
-});
-
-// Share URL
-shareBtn.addEventListener('click', () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url)
-        .then(() => {
-            alert('URL copied to clipboard!');
-        })
-        .catch(() => {
-            alert('Failed to copy URL. Please copy it manually from the address bar.');
-        });
-});
-
-// Helper Functions
-function addActivity() {
-    const activity = activityInput.value.trim();
-
-    if (activity === '') {
-        alert('Please enter an activity');
-        return;
-    }
-
-    // Check if input is a URL but not a YouTube URL
-    if (isUrl(activity) && !isYoutubeUrl(activity)) {
-        alert('Only YouTube URLs are supported. Other URLs cannot be used as activities.');
-        return;
-    }
-
-    activities.push(activity);
-    activityInput.value = '';
-    activityInput.focus();
-
-    renderActivityList();
-    updateURL();
-}
-
-function renderActivityList() {
-    activityList.innerHTML = '';
-
-    activities.forEach((activity, index) => {
-        const li = document.createElement('li');
-
-        // Create text content
-        const text = document.createTextNode(activity);
-        li.appendChild(text);
-
-        // Create delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.innerHTML = '×';
-        deleteBtn.addEventListener('click', () => {
-            deleteActivity(index);
-        });
-
-        li.appendChild(deleteBtn);
-        activityList.appendChild(li);
-    });
-}
-
-function deleteActivity(index) {
-    const deletedActivity = activities.splice(index, 1)[0];
-    renderActivityList();
-    updateURL();
-
-    // If we deleted the previous activity, reset it
-    if (deletedActivity === previousActivity) {
-        previousActivity = null;
-    }
-}
-
-function updateURL() {
-    // Encode activities in URL
-    const encodedActivities = encodeURIComponent(JSON.stringify(activities));
-    const newUrl = `${window.location.origin}${window.location.pathname}?activities=${encodedActivities}`;
-    window.history.replaceState({ activities }, document.title, newUrl);
-}
-
-function loadActivitiesFromUrl() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const activitiesParam = urlParams.get('activities');
-
-    if (activitiesParam) {
-        try {
-            activities = JSON.parse(decodeURIComponent(activitiesParam));
-        } catch (e) {
-            console.error('Error parsing activities from URL:', e);
-        }
-    }
-}
-
-function isUrl(string) {
-    // Basic check if the string appears to be a URL
-    return string.startsWith('http://') || string.startsWith('https://');
-}
-
-function isYoutubeUrl(url) {
-    // Basic check for YouTube URL
-    return url.indexOf('youtube.com') !== -1 || url.indexOf('youtu.be') !== -1;
-}
-
-function extractYoutubeVideoId(url) {
-    // Extract video ID from various YouTube URL formats
-    const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-}
+document.addEventListener('DOMContentLoaded', ActivityApp.init);
