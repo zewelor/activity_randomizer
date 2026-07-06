@@ -1,5 +1,6 @@
 // DOM Elements
 const activityInput = document.getElementById('activity-input');
+const urlInput = document.getElementById('url-input');
 const addBtn = document.getElementById('add-btn');
 const activityList = document.getElementById('activity-list');
 const randomizeBtn = document.getElementById('randomize-btn');
@@ -16,7 +17,7 @@ const validationMsg = document.getElementById('validation-msg');
 let activities = [];
 
 // Add a variable to store the previously selected activity index
-let previousIndex = null;
+let previousIndex = -1;
 
 // Theme management
 function initTheme() {
@@ -77,6 +78,12 @@ activityInput.addEventListener('keyup', (e) => {
     }
 });
 
+urlInput.addEventListener('keyup', (e) => {
+    if (e.key === 'Enter') {
+        addActivity();
+    }
+});
+
 // Function to stop YouTube video
 function stopYoutubeVideo() {
     youtubePlayer.src = '';
@@ -114,22 +121,30 @@ function selectRandomActivity() {
 
     // Update the previous index
     previousIndex = randomIndex;
-    const randomActivity = activities[randomIndex];
+    const activity = activities[randomIndex];
 
     // Check if it's a YouTube URL
-    if (isYoutubeUrl(randomActivity)) {
-        const videoId = extractYoutubeVideoId(randomActivity);
+    if (activity.url && isYoutubeUrl(activity.url)) {
+        const videoId = extractYoutubeVideoId(activity.url);
         if (videoId) {
             // Display YouTube video
-            activityDisplay.innerHTML = `<p>Playing: ${escapeHTML(randomActivity)}</p>`;
+            activityDisplay.innerHTML = `<p>Playing: ${escapeHTML(activity.name)}</p>`;
             youtubeContainer.style.display = 'block';
             youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
         } else {
-            activityDisplay.innerHTML = `<p>${escapeHTML(randomActivity)}</p>`;
+            activityDisplay.innerHTML = `<p>${escapeHTML(activity.name)}</p>`;
         }
+    } else if (activity.url) {
+        // Display regular activity with an "Open link" link
+        activityDisplay.innerHTML = `
+            <p>${escapeHTML(activity.name)}</p>
+            <div style="margin-top: 10px;">
+                <a href="${escapeHTML(activity.url)}" target="_blank" rel="noopener noreferrer" class="activity-link">Open link 🔗</a>
+            </div>
+        `;
     } else {
         // Display regular activity
-        activityDisplay.innerHTML = `<p>${escapeHTML(randomActivity)}</p>`;
+        activityDisplay.innerHTML = `<p>${escapeHTML(activity.name)}</p>`;
     }
 }
 
@@ -146,7 +161,7 @@ clearBtn.addEventListener('click', () => {
         updateURL();
         activityDisplay.innerHTML = '<p>Click the button to get a random activity!</p>';
         stopYoutubeVideo();
-        previousIndex = null;
+        previousIndex = -1;
         clearValidationError();
     }
 });
@@ -173,12 +188,16 @@ shareBtn.addEventListener('click', () => {
 activityInput.addEventListener('input', () => {
     clearValidationError();
 });
+urlInput.addEventListener('input', () => {
+    clearValidationError();
+});
 
 // Helper Functions
 function showValidationError(message) {
     validationMsg.textContent = message;
     validationMsg.style.display = 'block';
     activityInput.style.borderColor = 'var(--delete-button)';
+    urlInput.style.borderColor = 'var(--delete-button)';
 }
 
 function clearValidationError() {
@@ -187,25 +206,30 @@ function clearValidationError() {
         validationMsg.style.display = 'none';
     }
     activityInput.style.borderColor = '';
+    urlInput.style.borderColor = '';
 }
 
 function addActivity() {
-    const activity = activityInput.value.trim();
+    const name = activityInput.value.trim();
+    const url = urlInput.value.trim();
 
-    if (activity === '') {
-        showValidationError('Please enter an activity.');
+    if (name === '') {
+        showValidationError('Please enter an activity name.');
         return;
     }
 
-    // Check if input is a URL but not a YouTube URL
-    if (isUrl(activity) && !isYoutubeUrl(activity)) {
-        showValidationError('Only YouTube URLs are supported. Other URLs cannot be used as activities.');
+    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        showValidationError('Please enter a valid URL starting with http:// or https://');
         return;
     }
 
     clearValidationError();
-    activities.push(activity);
+    activities.push({
+        name,
+        url: url || null
+    });
     activityInput.value = '';
+    urlInput.value = '';
     activityInput.focus();
 
     // Reset instruction if previous state was "Please add some activities first!"
@@ -224,7 +248,8 @@ function renderActivityList() {
         const li = document.createElement('li');
 
         // Create text content
-        const text = document.createTextNode(activity);
+        const displayName = activity.url ? `${activity.name} 🔗` : activity.name;
+        const text = document.createTextNode(displayName);
         li.appendChild(text);
 
         // Create delete button
@@ -246,7 +271,7 @@ function deleteActivity(index) {
 
     // Adjust previous index since elements have shifted
     if (index === previousIndex) {
-        previousIndex = null;
+        previousIndex = -1;
     } else if (index < previousIndex) {
         previousIndex--;
     }
@@ -273,17 +298,17 @@ function loadActivitiesFromUrl() {
         try {
             const parsed = JSON.parse(decodeURIComponent(activitiesParam));
             if (Array.isArray(parsed)) {
-                activities = parsed.filter(item => typeof item === 'string');
+                activities = parsed
+                    .filter(item => item && typeof item === 'object' && typeof item.name === 'string' && item.name.trim() !== '')
+                    .map(item => ({
+                        name: item.name.trim(),
+                        url: (typeof item.url === 'string' && (item.url.startsWith('http://') || item.url.startsWith('https://'))) ? item.url : null
+                    }));
             }
         } catch (e) {
             console.error('Error parsing activities from URL:', e);
         }
     }
-}
-
-function isUrl(string) {
-    // Basic check if the string appears to be a URL
-    return string.startsWith('http://') || string.startsWith('https://');
 }
 
 function isYoutubeUrl(url) {
